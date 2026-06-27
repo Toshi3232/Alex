@@ -942,6 +942,15 @@ function renderTrend() {
   if (personFilter !== 'all') persons = persons.filter(p => p === personFilter);
   if (!persons.length) { el.innerHTML = emptyHtml('担当者データがありません'); return; }
 
+  // 当月の降順ソート（最新月を持つ担当者が上）
+  persons.sort((a, b) => {
+    const aMs = curYearMonths.filter(m => byPerson[a][m]);
+    const bMs = curYearMonths.filter(m => byPerson[b][m]);
+    const aLast = aMs.length ? parseMon(aMs[aMs.length - 1]) : 0;
+    const bLast = bMs.length ? parseMon(bMs[bMs.length - 1]) : 0;
+    return bLast - aLast;
+  });
+
   const grandAvg = key => {
     const vals = curEntries.map(e => Number(e[key]) || 0).filter(v => v > 0);
     return vals.length ? vals.reduce((s,v) => s+v, 0) / vals.length : null;
