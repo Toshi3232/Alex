@@ -772,6 +772,16 @@ function renderWeekly() {
 
 function applyChangeFilters() { renderChange(); }
 
+function fmtInputCount(d) {
+  if (!d.inputCount) return '';
+  const prev = (String(d.prevMonth    || '').match(/(\d{1,2})月/) || [])[1];
+  const curr = (String(d.currentMonth || '').match(/(\d{1,2})月/) || [])[1];
+  let s = String(d.inputCount);
+  if (prev) s = s.replace(/前月/g, prev + '月');
+  if (curr) s = s.replace(/当月/g, curr + '月');
+  return s;
+}
+
 function renderChange() {
   const person = document.getElementById('c-person').value;
   const data   = state.change ? state.change.entries.filter(e =>
@@ -788,7 +798,7 @@ function renderChange() {
         ${avatarHtml(d.person, 28)}
         <div style="flex:1">
           <div style="font-weight:600;font-size:13px">${esc(d.person)}</div>
-          <div style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:20px;background:var(--stone-light);border:1px solid var(--border);font-size:11px;color:var(--text-2);font-family:var(--font-mono)">${esc(d.inputCount)}</div>
+          <div style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:20px;background:var(--stone-light);border:1px solid var(--border);font-size:11px;color:var(--text-2);font-family:var(--font-mono)">${esc(fmtInputCount(d))}</div>
         </div>
         <div style="display:flex;gap:8px">
           <div style="text-align:center;padding:6px 14px;border-radius:var(--radius);background:var(--sage-light);color:var(--sage-text)">
@@ -975,6 +985,9 @@ function renderTrend() {
     const avgG = scAvg('scoreGrowth');
     const avgR = scAvg('scoreRisk');
     const avgE = scAvg('scoreEngage');
+    const latestMonth = pMonths[pMonths.length - 1];
+    const latestEntry = latestMonth ? pd[latestMonth] : null;
+    const countPill   = latestEntry ? `<span class="trend-months" style="margin-left:0">${esc(fmtInputCount(latestEntry))}</span>` : '';
     return `
       <div class="trend-card">
         <div class="trend-head">
@@ -982,6 +995,7 @@ function renderTrend() {
           <div>
             <div class="trend-name">${esc(name)}</div>
             ${dept ? `<div class="trend-dept">${esc(dept)}</div>` : ''}
+            ${countPill}
           </div>
           <div class="trend-scores">
             ${avgG !== null ? `<span class="trend-score-badge ts-g">成長 ${avgG}${cmpStr(avgG, grandG)}</span>` : ''}
