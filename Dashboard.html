@@ -792,6 +792,11 @@ function renderChange() {
     el.innerHTML = emptyHtml('変化点データがありません<br><small>月次処理後に表示されます</small>');
     return;
   }
+  // 当月の降順（新しい月が上）
+  data.sort((a, b) => {
+    const toNum = s => { const m = String(s||'').match(/(\d{4})年(\d{1,2})月/); return m ? parseInt(m[1])*100+parseInt(m[2]) : 0; };
+    return toNum(b.currentMonth) - toNum(a.currentMonth);
+  });
   el.innerHTML = data.map(d => `
     <div class="change-card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">

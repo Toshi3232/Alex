@@ -360,9 +360,21 @@ function _getChangeData(ss) {
   if (!sheet) return { persons:[], depts:[], entries:[] };
 
   const data       = sheet.getDataRange().getValues();
+  const tz         = Session.getScriptTimeZone();
   const entries    = [];
   const personsSet = new Set();
   const deptsSet   = new Set();
+
+  // Google Sheets が日本語日付を Date 型に変換するため、Date/文字列両対応
+  function toMonthLabel(val) {
+    if (val instanceof Date) return Utilities.formatDate(val, tz, 'yyyy年M月');
+    return String(val || '').trim();
+  }
+  function toMonthNum(val) {
+    if (val instanceof Date) return String(val.getMonth() + 1);
+    const m = String(val || '').match(/(\d{1,2})月/);
+    return m ? m[1] : null;
+  }
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -376,12 +388,20 @@ function _getChangeData(ss) {
     personsSet.add(person);
     if (dept) deptsSet.add(dept);
 
+    const curLabel = toMonthLabel(row[1]);
+    const prvLabel = toMonthLabel(row[2]);
+    const curNum   = toMonthNum(row[1]);
+    const prvNum   = toMonthNum(row[2]);
+    let inputCount = String(row[3] || '');
+    if (prvNum) inputCount = inputCount.replace(/前月/g, prvNum + '月');
+    if (curNum) inputCount = inputCount.replace(/当月/g, curNum + '月');
+
     entries.push({
       dept        : dept,
       person      : person,
-      currentMonth: String(row[1] || '').trim(),
-      prevMonth   : String(row[2] || '').trim(),
-      inputCount  : row[3] || 0,
+      currentMonth: curLabel,
+      prevMonth   : prvLabel,
+      inputCount  : inputCount || row[3] || 0,
       growth      : String(row[4] || '').trim(),
       change      : String(row[5] || '').trim(),
       problem     : String(row[6] || '').trim(),
