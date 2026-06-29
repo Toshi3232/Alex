@@ -747,7 +747,7 @@ function renderWeekly() {
     (period === 'all' || e.period === period) &&
     e.rowType === 'person' &&
     !isInvalidWeeklyPeriod(e.period)
-  ) : [];
+  ).sort((a, b) => b.period.substring(0, 10).localeCompare(a.period.substring(0, 10))) : [];
   const el = document.getElementById('weekly-content');
   if (!data.length) { el.innerHTML = emptyHtml('週次データがありません'); return; }
 

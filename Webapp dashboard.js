@@ -345,7 +345,7 @@ function _getWeeklyData(ss, tz) {
   }
 
   return {
-    periods: [...periodsSet],
+    periods: [...periodsSet].sort((a, b) => b.substring(0, 10).localeCompare(a.substring(0, 10))),
     persons: [...personsSet].sort(),
     depts  : [...deptsSet].sort(),
     entries: entries
