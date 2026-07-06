@@ -356,7 +356,9 @@ select:focus{border-color:var(--accent)}
 .trend-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .trend-name{font-weight:600;font-size:13px}
 .trend-dept{font-size:11px;color:var(--text-3)}
-.trend-chart-wrap{position:relative;height:220px}
+.trend-chart-row{display:flex;gap:16px;align-items:center}
+.trend-chart-wrap{position:relative;height:220px;flex:1;min-width:0}
+.trend-radar-wrap{width:240px;height:240px;flex-shrink:0}
 .trend-scores{display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .trend-score-badge{font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;font-family:var(--font-mono);letter-spacing:0.02em;white-space:nowrap}
 .ts-g{background:var(--sage-light);color:var(--sage-text)}
@@ -1008,6 +1010,7 @@ function renderTrend() {
     const name    = p.includes('｜') ? p.split('｜')[1].trim() : p;
     const dept    = p.includes('｜') ? p.split('｜')[0].trim() : '';
     const cid     = 'chart_' + idx;
+    const rid     = 'radar_' + idx;
     const pd      = byPerson[p];
     const pMonths = curYearMonths.filter(m => pd[m]);
     const cnt     = pMonths.length;
@@ -1038,7 +1041,10 @@ function renderTrend() {
             <span class="trend-months">${cnt}か月分</span>
           </div>
         </div>
-        <div class="trend-chart-wrap"><canvas id="${cid}"></canvas></div>
+        <div class="trend-chart-row">
+          <div class="trend-chart-wrap"><canvas id="${cid}"></canvas></div>
+          <div class="trend-radar-wrap"><canvas id="${rid}" width="240" height="240"></canvas></div>
+        </div>
       </div>
     `;
   }).join('');
@@ -1098,6 +1104,56 @@ function renderTrend() {
       }
     });
     window._trendCharts.push(chart);
+
+    // レーダーチャート（成長/リスク/エンゲ）
+    const rcanvas = document.getElementById('radar_' + idx);
+    if (rcanvas) {
+      const pMonths2 = chartMonths.filter(m => pd[m]);
+      const scAvg2 = key => {
+        if (!pMonths2.length) return 0;
+        const vals = pMonths2.map(m => Number(pd[m][key]) || 0);
+        return vals.reduce((s,v) => s+v, 0) / vals.length;
+      };
+      const radarChart = new Chart(rcanvas, {
+        type: 'radar',
+        data: {
+          labels: ['成長', '安全', 'エンゲ'],
+          datasets: [{
+            data: [scAvg2('scoreGrowth'), 6 - scAvg2('scoreRisk'), scAvg2('scoreEngage')],
+            backgroundColor: 'rgba(122,158,138,0.18)',
+            borderColor: '#7A9E8A',
+            borderWidth: 2,
+            pointBackgroundColor: ['#7A9E8A', '#C47A7A', '#9E7FA0'],
+            pointBorderColor: '#fff',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: false,
+          scales: {
+            r: {
+              min: 0, max: 5,
+              ticks: { stepSize: 1, font: { size: 9 }, color: '#B0A89F', backdropColor: 'transparent' },
+              grid: { color: 'rgba(0,0,0,0.07)' },
+              angleLines: { color: 'rgba(0,0,0,0.07)' },
+              pointLabels: { font: { size: 11 }, color: '#756E68' }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const labels = ['成長スコア', '安全スコア', 'エンゲスコア'];
+                  return labels[ctx.dataIndex] + ': ' + ctx.parsed.r.toFixed(1);
+                }
+              }
+            }
+          }
+        }
+      });
+      window._trendCharts.push(radarChart);
+    }
   });
 }
 
