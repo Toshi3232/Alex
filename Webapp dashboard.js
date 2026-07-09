@@ -475,6 +475,7 @@ function extractWeatherScore(text) {
 // CSV出力用：全レコード取得
 // ================================================
 function getAllDataForExport() {
+  _requireMaster_();
   const ss    = SpreadsheetApp.openById(SS_ID);
   const tz    = Session.getScriptTimeZone();
   const depts = getDashboardAccess_(Session.getActiveUser().getEmail());
