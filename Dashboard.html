@@ -365,7 +365,7 @@ select:focus{border-color:var(--accent)}
 .ts-r{background:var(--accent-light);color:var(--accent-text)}
 .ts-e{background:var(--mauve-light);color:var(--mauve-text)}
 .ts-cmp{font-size:9px;font-weight:400;opacity:0.75;margin-left:4px;letter-spacing:0}
-.trend-months{font-size:11px;color:var(--text-3);font-family:var(--font-mono);letter-spacing:0.04em;padding:3px 10px;border-radius:20px;background:var(--stone-light)}
+.trend-months{font-size:16px;color:var(--text-3);font-family:var(--font-mono);letter-spacing:0.04em;padding:5px 15px;border-radius:20px;background:var(--stone-light)}
 .prev-year-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--stone-light);border-radius:var(--radius);margin-bottom:16px;flex-wrap:wrap}
 .prev-year-label{font-size:11px;color:var(--text-2);font-weight:500;margin-right:4px;white-space:nowrap}
 </style>
@@ -825,7 +825,7 @@ function renderChange() {
         ${avatarHtml(d.person, 28)}
         <div style="flex:1">
           <div style="font-weight:600;font-size:13px">${esc(d.person)}</div>
-          <div style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:20px;background:var(--stone-light);border:1px solid var(--border);font-size:11px;color:var(--text-2);font-family:var(--font-mono)">${esc(fmtInputCount(d))}</div>
+          <div style="display:inline-block;margin-top:4px;padding:5px 15px;border-radius:20px;background:var(--stone-light);border:1px solid var(--border);font-size:16px;color:var(--text-2);font-family:var(--font-mono)">${esc(fmtInputCount(d))}</div>
         </div>
         <div style="display:flex;gap:8px">
           <div style="text-align:center;padding:6px 14px;border-radius:var(--radius);background:var(--sage-light);color:var(--sage-text)">
@@ -842,13 +842,14 @@ function renderChange() {
           </div>
         </div>
       </div>
+      <div style="font-size:11px;color:var(--text-3);text-align:right;margin:-4px 0 12px">アラートフラグが示す内容は以下の記録から読み取れます</div>
       <div class="wc-grid">
         <div class="wc-field-status"><div class="field-label">成長点</div><div class="field-text" style="max-height:150px;overflow-y:auto">${formatText(d.growth)}</div></div>
         <div class="wc-field-issue"><div class="field-label" style="color:var(--mauve-text)">変化点</div><div class="field-text" style="max-height:150px;overflow-y:auto">${formatText(d.change)}</div></div>
       </div>
       <div class="wc-grid" style="margin-top:10px">
         <div style="background:var(--stone-light);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
-          <div class="field-label" style="color:var(--stone)">問題点</div>
+          <div class="field-label" style="color:var(--stone)">気になる点</div>
           <div class="field-text" style="max-height:150px;overflow-y:auto">${formatText(d.problem)}</div>
         </div>
         <div style="background:var(--warn-bg);border:1px solid rgba(184,152,96,0.2);border-radius:var(--radius);padding:12px 14px">
