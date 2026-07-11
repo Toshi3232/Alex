@@ -1043,7 +1043,7 @@ function renderTrend() {
           </div>
         </div>
         <div class="trend-chart-row">
-          <div class="trend-chart-wrap"><canvas id="${cid}"></canvas></div>
+          <div class="trend-chart-wrap"><canvas id="${cid}"></canvas><div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px">ポイントをクリックすると、その理由を見ることができます</div></div>
           <div class="trend-radar-wrap"><canvas id="${rid}" width="240" height="240"></canvas></div>
         </div>
       </div>
@@ -1069,9 +1069,9 @@ function renderTrend() {
       data: {
         labels: chartMonths,
         datasets: [
-          { label:'成長スコア',       data:gData, borderColor:'#7A9E8A', pointBackgroundColor:'#7A9E8A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
-          { label:'リスクスコア',     data:rData, borderColor:'#C47A7A', pointBackgroundColor:'#C47A7A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
-          { label:'エンゲージスコア', data:eData, borderColor:'#9E7FA0', pointBackgroundColor:'#9E7FA0', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
+          { label:'成長ポイント',       data:gData, borderColor:'#7A9E8A', pointBackgroundColor:'#7A9E8A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
+          { label:'リスクポイント',     data:rData, borderColor:'#C47A7A', pointBackgroundColor:'#C47A7A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
+          { label:'エンゲージポイント', data:eData, borderColor:'#9E7FA0', pointBackgroundColor:'#9E7FA0', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
         ]
       },
       options: {
@@ -1145,7 +1145,7 @@ function renderTrend() {
             tooltip: {
               callbacks: {
                 label: ctx => {
-                  const labels = ['成長スコア', '安全スコア', 'エンゲスコア'];
+                  const labels = ['成長ポイント', '安全ポイント', 'エンゲポイント'];
                   return labels[ctx.dataIndex] + ': ' + ctx.parsed.r.toFixed(1);
                 }
               }
