@@ -309,26 +309,43 @@ function _getDailyData(ss, tz) {
 // 週次サマリー（纏めシート）
 // ------------------------------------------------
 function _getWeeklyData(ss, tz) {
+  const WEEKS = 5; // 表示する直近の週数
+
   const sheet = ss.getSheetByName('纏め');
   if (!sheet) return { periods:[], persons:[], depts:[], entries:[] };
 
-  const data       = sheet.getDataRange().getValues();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { periods:[], persons:[], depts:[], entries:[] };
+
+  // 纏めは「担当者昇順→期間降順」で並ぶため、行スライスでは直近週を取り出せない。
+  // 使う8列だけ読み、直近WEEKS週分に絞ってから返す。
+  const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+
+  const periodsAll = new Set();
+  for (let i = 0; i < data.length; i++) {
+    const p = String(data[i][1] || '').trim();
+    if (p) periodsAll.add(p);
+  }
+  const periods = [...periodsAll]
+    .sort((a, b) => b.substring(0, 10).localeCompare(a.substring(0, 10)))
+    .slice(0, WEEKS);
+  const keepPeriods = new Set(periods);
+
   const entries    = [];
-  const periodsSet = new Set();
   const personsSet = new Set();
   const deptsSet   = new Set();
 
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 0; i < data.length; i++) {
     const row    = data[i];
     const person = String(row[0] || '').trim();
     const period = String(row[1] || '').trim();
     if (!person || !period) continue;
+    if (!keepPeriods.has(period)) continue;
 
     const isDept = !person.includes('｜');
     const dept   = isDept ? person : person.split('｜')[0].trim();
     const name   = isDept ? person : person.split('｜')[1].trim();
 
-    periodsSet.add(period);
     deptsSet.add(dept);
     if (!isDept) personsSet.add(name);
 
@@ -345,7 +362,7 @@ function _getWeeklyData(ss, tz) {
   }
 
   return {
-    periods: [...periodsSet].sort((a, b) => b.substring(0, 10).localeCompare(a.substring(0, 10))),
+    periods: periods,
     persons: [...personsSet].sort(),
     depts  : [...deptsSet].sort(),
     entries: entries
@@ -356,10 +373,14 @@ function _getWeeklyData(ss, tz) {
 // 変化点
 // ------------------------------------------------
 function _getChangeData(ss) {
+  const MONTHS = 3; // 表示する直近の月数
+
   const sheet = ss.getSheetByName('変化点');
   if (!sheet) return { persons:[], depts:[], entries:[] };
 
-  const data       = sheet.getDataRange().getValues();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { persons:[], depts:[], entries:[] };
+
   const tz         = Session.getScriptTimeZone();
   const entries    = [];
   const personsSet = new Set();
@@ -376,7 +397,25 @@ function _getChangeData(ss) {
     return m ? m[1] : null;
   }
 
-  for (let i = 1; i < data.length; i++) {
+  // 変化点は追記のみでソートされないため時系列順（最新が最下部）。
+  // まず「当月」列だけ読んで直近MONTHSか月分の開始行を求め、長文列はその範囲しか読まない。
+  const monthCol = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  const seen     = new Set();
+  let   firstIdx = 0;
+  for (let i = monthCol.length - 1; i >= 0; i--) {
+    const label = toMonthLabel(monthCol[i][0]);
+    if (!label) continue;
+    if (!seen.has(label)) {
+      if (seen.size >= MONTHS) break;
+      seen.add(label);
+    }
+    firstIdx = i;
+  }
+
+  const startRow = 2 + firstIdx;
+  const data     = sheet.getRange(startRow, 1, lastRow - startRow + 1, 13).getValues();
+
+  for (let i = 0; i < data.length; i++) {
     const row = data[i];
     const raw = String(row[0] || '').trim();
     if (!raw) continue;
