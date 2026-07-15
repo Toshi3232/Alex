@@ -366,6 +366,13 @@ select:focus{border-color:var(--accent)}
 .ts-e{background:var(--mauve-light);color:var(--mauve-text)}
 .ts-cmp{font-size:9px;font-weight:400;opacity:0.75;margin-left:4px;letter-spacing:0}
 .trend-months{font-size:16px;color:var(--text-3);font-family:var(--font-mono);letter-spacing:0.04em;padding:5px 15px;border-radius:20px;background:var(--stone-light)}
+/* 信号機（入力状況とリスクの悪いほうを表示） */
+.trend-id{display:flex;flex-direction:column;gap:5px;align-items:flex-start;min-width:0}
+.sig1{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:0.04em;padding:4px 11px;border-radius:20px;white-space:nowrap}
+.sig1 i{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.s-b{background:var(--sage-light);color:var(--sage-text)}
+.s-y{background:var(--gold-light);color:var(--gold-text)}
+.s-r{background:var(--accent-light);color:var(--accent-mid)}
 .prev-year-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--stone-light);border-radius:var(--radius);margin-bottom:16px;flex-wrap:wrap}
 .prev-year-label{font-size:11px;color:var(--text-2);font-weight:500;margin-right:4px;white-space:nowrap}
 </style>
@@ -1003,6 +1010,28 @@ function renderTrend() {
   const curEntries  = allEntries.filter(e => Math.floor(parseMon(normalizeMon(e.currentMonth)) / 100) === currentYear);
   const prevEntries = allEntries.filter(e => Math.floor(parseMon(normalizeMon(e.currentMonth)) / 100) === prevYear);
 
+  // 入力0件の月は日報がなく評価できないため、点を打たず平均にも含めない
+  const isZeroIn = e => {
+    const mt = String((e && e.inputCount) || '').split('→').pop().match(/(\d+)\s*件/);
+    return mt ? Number(mt[1]) === 0 : false;
+  };
+
+  // 入力状況：silent=0件（沈黙） / drop=前月比30%以上の減少 / ok=それ以外
+  const inputTier = e => {
+    if (isZeroIn(e)) return 'silent';
+    const m = String((e && e.inputCount) || '').match(/([+-]\d+)%/);
+    return (m && Number(m[1]) <= -30) ? 'drop' : 'ok';
+  };
+  // 信号：入力状況とリスクの悪いほうを採用する。成長・エンゲージは判定に使わない
+  // （伸びていないだけの人を赤にしないため）。リスクは全クライアント1〜5で共通。
+  const signalOf = (tier, risk) => {
+    if (tier === 'silent') return { c:'r', t:'要注意 ／ 日報が止まっています' };
+    if (risk >= 4)         return { c:'r', t:'要注意 ／ 内容に気になる記述があります' };
+    if (tier === 'drop')   return { c:'y', t:'経過観察 ／ 入力が減っています' };
+    if (risk === 3)        return { c:'y', t:'経過観察 ／ 気になる記述があります' };
+    return { c:'b', t:'良好' };
+  };
+
   const chartMonths = [];
   for (let mo = 1; mo <= 12; mo++) chartMonths.push(currentYear + '年' + mo + '月');
 
@@ -1029,7 +1058,7 @@ function renderTrend() {
   });
 
   const grandAvg = key => {
-    const vals = curEntries.map(e => Number(e[key]) || 0).filter(v => v > 0);
+    const vals = curEntries.filter(e => !isZeroIn(e)).map(e => Number(e[key]) || 0).filter(v => v > 0);
     return vals.length ? vals.reduce((s,v) => s+v, 0) / vals.length : null;
   };
   const grandG = grandAvg('scoreGrowth');
@@ -1043,7 +1072,7 @@ function renderTrend() {
   };
 
   const prevAvgFn = key => {
-    const vals = prevEntries.map(e => Number(e[key]) || 0).filter(v => v > 0);
+    const vals = prevEntries.filter(e => !isZeroIn(e)).map(e => Number(e[key]) || 0).filter(v => v > 0);
     return vals.length ? (vals.reduce((s,v) => s+v, 0) / vals.length).toFixed(1) : null;
   };
   const prevYearHtml = prevEntries.length ? `
@@ -1063,7 +1092,8 @@ function renderTrend() {
     const cid     = 'chart_' + idx;
     const rid     = 'radar_' + idx;
     const pd      = byPerson[p];
-    const pMonths = curYearMonths.filter(m => pd[m]);
+    const pAll    = curYearMonths.filter(m => pd[m]);            // 行がある月（0件も含む）
+    const pMonths = pAll.filter(m => !isZeroIn(pd[m]));          // 評価に使える月
     const cnt     = pMonths.length;
     const scAvg   = key => {
       if (!pMonths.length) return null;
@@ -1074,17 +1104,23 @@ function renderTrend() {
     const avgR = scAvg('scoreRisk');
     const avgE = scAvg('scoreEngage');
     const avgSafe = avgR !== null ? (6 - parseFloat(avgR)).toFixed(1) : null;
-    const latestMonth = pMonths[pMonths.length - 1];
+    const latestMonth = pAll[pAll.length - 1];  // 件数バッジは0件月こそ知らせたいので pAll から取る
     const latestEntry = latestMonth ? pd[latestMonth] : null;
     const countPill   = latestEntry ? `<span class="trend-months" style="margin-left:0">${esc(fmtInputCount(latestEntry))}</span>` : '';
+    // 信号はリスクのみ参照。0件月は評価対象外なので、直近の「評価に使える月」のリスクを見る
+    const latestValid = pMonths[pMonths.length - 1];
+    const sigRisk     = latestValid ? (Number(pd[latestValid].scoreRisk) || 0) : 0;
+    const sig         = latestEntry ? signalOf(inputTier(latestEntry), sigRisk) : null;
+    const sigPill     = sig ? `<span class="sig1 s-${sig.c}"><i></i>${esc(sig.t)}</span>` : '';
     return `
       <div class="trend-card">
         <div class="trend-head">
           ${avatarHtml(name, 28)}
-          <div>
+          <div class="trend-id">
             <div class="trend-name">${esc(name)}</div>
             ${dept ? `<div class="trend-dept">${esc(dept)}</div>` : ''}
             ${countPill}
+            ${sigPill}
           </div>
           <div class="trend-scores">
             ${avgG !== null ? `<span class="trend-score-badge ts-g">成長 ${avgG}${cmpStr(avgG, grandG)}</span>` : ''}
@@ -1108,9 +1144,9 @@ function renderTrend() {
     if (!canvas) return;
 
     const pd = byPerson[p];
-    const gRaw   = chartMonths.map(m => pd[m] ? (pd[m].scoreGrowth  || null) : null);
-    const rRaw   = chartMonths.map(m => pd[m] ? (pd[m].scoreRisk    || null) : null);
-    const eRaw   = chartMonths.map(m => pd[m] ? (pd[m].scoreEngage  || null) : null);
+    const gRaw   = chartMonths.map(m => (pd[m] && !isZeroIn(pd[m])) ? (pd[m].scoreGrowth  || null) : null);
+    const rRaw   = chartMonths.map(m => (pd[m] && !isZeroIn(pd[m])) ? (pd[m].scoreRisk    || null) : null);
+    const eRaw   = chartMonths.map(m => (pd[m] && !isZeroIn(pd[m])) ? (pd[m].scoreEngage  || null) : null);
     const J = 0.12;
     const gData  = gRaw.map(v => v !== null ? Math.min(5, v + J) : null);
     const rData  = rRaw.map(v => v !== null ? 6 - v : null);
@@ -1162,8 +1198,8 @@ function renderTrend() {
 
     // レーダーチャート（成長/リスク/エンゲ）
     const rcanvas = document.getElementById('radar_' + idx);
-    if (rcanvas) {
-      const pMonths2 = chartMonths.filter(m => pd[m]);
+    const pMonths2 = chartMonths.filter(m => pd[m] && !isZeroIn(pd[m]));
+    if (rcanvas && pMonths2.length) {
       const scAvg2 = key => {
         if (!pMonths2.length) return 0;
         const vals = pMonths2.map(m => Number(pd[m][key]) || 0);
@@ -1175,8 +1211,8 @@ function renderTrend() {
           labels: ['成長', '安全', 'エンゲ'],
           datasets: [{
             data: [scAvg2('scoreGrowth'), 6 - scAvg2('scoreRisk'), scAvg2('scoreEngage')],
-            backgroundColor: 'rgba(122,158,138,0.18)',
-            borderColor: '#7A9E8A',
+            backgroundColor: 'rgba(232,167,92,0.18)',
+            borderColor: '#E8A75C',
             borderWidth: 2,
             pointBackgroundColor: ['#7A9E8A', '#C47A7A', '#9E7FA0'],
             pointBorderColor: '#fff',
