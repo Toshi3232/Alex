@@ -453,6 +453,7 @@ select:focus{border-color:var(--accent)}
   <!-- ===== 変化点 ===== -->
   <div id="sec-change" class="section">
     <div class="filter-bar">
+      <select id="c-dept" onchange="applyChangeFilters()"><option value="all">全部署</option></select>
       <select id="c-person" onchange="applyChangeFilters()"><option value="all">全担当者</option></select>
       <select id="c-month" onchange="applyChangeFilters()"><option value="all">全期間</option></select>
       <button id="c-back" class="btn" onclick="goBackFromChange()" style="display:none">
@@ -471,6 +472,7 @@ select:focus{border-color:var(--accent)}
   <div id="sec-trend" class="section">
     <div class="filter-bar">
       <select id="t-year" onchange="renderTrend()"></select>
+      <select id="t-dept" onchange="renderTrend()"><option value="all">全部署</option></select>
       <select id="t-person" onchange="renderTrend()"><option value="all">全担当者</option></select>
     </div>
     <div id="trend-content"><div class="loading"><div class="spinner"></div><span>推移データを読み込んでいます...</span></div></div>
@@ -589,10 +591,12 @@ function loadAllData() {
       updateSelect('d-person', all.daily.persons, '全担当者');
       updateSelect('w-dept',   state.weekly.depts,   '全部署');
       updateSelect('w-period', state.weekly.periods, '全期間');
+      updateSelect('c-dept',   all.change.depts,   '全部署');
       updateSelect('c-person', all.change.persons, '全担当者');
       const _cMonths = [...new Set((all.change.entries || []).map(e => normalizeMon(e.currentMonth)))]
         .filter(Boolean).sort((a,b) => parseMon(a) - parseMon(b));
       updateSelect('c-month', _cMonths, '全期間');
+      updateSelect('t-dept',   all.change.depts,   '全部署');
       updateSelect('t-person', all.change.persons, '全担当者');
       updateSelect('a-dept',   all.award.depts,   '全部署');
 
@@ -749,11 +753,35 @@ function renderWeekly() {
     (period === 'all' || e.period === period) &&
     e.rowType === 'person' &&
     !isInvalidWeeklyPeriod(e.period)
-  ).sort((a, b) => b.period.substring(0, 10).localeCompare(a.period.substring(0, 10))) : [];
+  ).sort((a, b) => {
+    const p = b.period.substring(0, 10).localeCompare(a.period.substring(0, 10));
+    return p !== 0 ? p : String(a.person || '').localeCompare(String(b.person || ''));
+  }) : [];
   const el = document.getElementById('weekly-content');
-  if (!data.length) { el.innerHTML = emptyHtml('週次データがありません'); return; }
+  const deptRows = state.weekly ? state.weekly.entries.filter(e =>
+    (dept   === 'all' || e.dept   === dept) &&
+    (period === 'all' || e.period === period) &&
+    e.rowType === 'dept' &&
+    e.spotlight && String(e.spotlight).trim() &&
+    !isInvalidWeeklyPeriod(e.period)
+  ).sort((a, b) => {
+    const p = b.period.substring(0, 10).localeCompare(a.period.substring(0, 10));
+    return p !== 0 ? p : String(a.dept || '').localeCompare(String(b.dept || ''));
+  }) : [];
+  const deptCard = d => `
+    <div class="weekly-card" style="border-left:3px solid var(--gold-text)">
+      <div class="wc-head"><div>
+        <div class="wc-person"><span style="font-size:11px;color:var(--text-3);margin-right:7px">${esc(d.dept)}</span>🏢 部署全体の注目のポイント</div>
+        <div class="wc-period">${esc(formatWeeklyPeriod(d.period))}</div>
+      </div></div>
+      <div style="background:var(--gold-light);border:1px solid rgba(184,152,96,0.18);border-radius:var(--radius);padding:14px 16px;margin-top:10px">
+        <div class="field-text" style="max-height:300px;overflow-y:auto">${formatText(d.spotlight)}</div>
+      </div>
+    </div>
+  `;
+  if (!data.length && !deptRows.length) { el.innerHTML = emptyHtml('週次データがありません'); return; }
 
-  el.innerHTML = data.map(d => `
+  const personCard = d => `
     <div class="weekly-card">
       <div class="wc-head">
         ${avatarHtml(d.person, 30)}
@@ -777,16 +805,32 @@ function renderWeekly() {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  el.innerHTML = [...deptRows, ...data].sort((a, b) => {
+    const p = b.period.substring(0, 10).localeCompare(a.period.substring(0, 10));
+    if (p !== 0) return p;
+    const deptA = String(a.dept || '').split('｜')[0];
+    const deptB = String(b.dept || '').split('｜')[0];
+    const dp = deptA.localeCompare(deptB);
+    if (dp !== 0) return dp;
+    const allA = a.rowType === 'dept' || a.person === '全体';
+    const allB = b.rowType === 'dept' || b.person === '全体';
+    if (allA !== allB) return allA ? -1 : 1;
+    return String(a.person || '').localeCompare(String(b.person || ''));
+  }).map(d => d.rowType === 'dept' ? deptCard(d) : personCard(d)).join('');
 }
 
 function applyChangeFilters() { renderChange(); }
 
 function goBackFromChange() {
+  const fromDept   = document.getElementById('c-dept').value;
   const fromPerson = document.getElementById('c-person').value;
+  document.getElementById('c-dept').value   = 'all';
   document.getElementById('c-person').value = 'all';
   document.getElementById('c-month').value  = 'all';
   const cb = document.getElementById('c-back'); if (cb) cb.style.display = 'none';
+  const td = document.getElementById('t-dept');
+  if (td && fromDept && fromDept !== 'all') td.value = fromDept;
   const tp = document.getElementById('t-person');
   if (tp && fromPerson && fromPerson !== 'all') tp.value = fromPerson;
   switchTab('trend');
@@ -803,9 +847,11 @@ function fmtInputCount(d) {
 }
 
 function renderChange() {
+  const dept   = document.getElementById('c-dept').value;
   const person = document.getElementById('c-person').value;
   const month  = document.getElementById('c-month').value;
   const data   = state.change ? state.change.entries.filter(e =>
+    (dept   === 'all' || e.dept   === dept) &&
     (person === 'all' || e.person === person) &&
     (month  === 'all' || normalizeMon(e.currentMonth) === month)
   ) : [];
@@ -833,8 +879,8 @@ function renderChange() {
             <div style="font-size:20px;font-weight:600;font-family:var(--font-mono)">${d.scoreGrowth}</div>
           </div>
           <div style="text-align:center;padding:6px 14px;border-radius:var(--radius);background:var(--accent-light);color:var(--accent-text)">
-            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;margin-bottom:2px">リスク</div>
-            <div style="font-size:20px;font-weight:600;font-family:var(--font-mono)">${d.scoreRisk}</div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;margin-bottom:2px">安全</div>
+            <div style="font-size:20px;font-weight:600;font-family:var(--font-mono)">${6 - Number(d.scoreRisk)}</div>
           </div>
           <div style="text-align:center;padding:6px 14px;border-radius:var(--radius);background:var(--mauve-light);color:var(--mauve-text)">
             <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;margin-bottom:2px">エンゲージ</div>
@@ -863,7 +909,7 @@ function renderChange() {
           <div class="field-text" style="max-height:150px;overflow-y:auto">${formatText(d.engagement)}</div>
         </div>
         <div style="background:var(--accent-light);border:1px solid rgba(196,121,122,0.2);border-radius:var(--radius);padding:12px 14px">
-          <div class="field-label" style="color:var(--accent-text)">リスク兆候</div>
+          <div class="field-label" style="color:var(--accent-text)">心理的安全性</div>
           <div class="field-text" style="max-height:150px;overflow-y:auto">${formatText(d.riskSign)}</div>
         </div>
       </div>
@@ -931,8 +977,11 @@ function renderTrend() {
   const el = document.getElementById('trend-content');
   if (!state.change) { el.innerHTML = emptyHtml('データを読み込んでいます...'); return; }
 
+  const deptFilter   = document.getElementById('t-dept').value;
   const personFilter = document.getElementById('t-person').value;
-  const allEntries   = state.change.entries;
+  const allEntries   = (deptFilter === 'all')
+    ? state.change.entries
+    : state.change.entries.filter(e => e.dept === deptFilter);
 
   const allMonths = [...new Set(allEntries.map(e => normalizeMon(e.currentMonth)))]
     .filter(Boolean)
@@ -986,6 +1035,7 @@ function renderTrend() {
   const grandG = grandAvg('scoreGrowth');
   const grandR = grandAvg('scoreRisk');
   const grandE = grandAvg('scoreEngage');
+  const grandSafe = grandR !== null ? 6 - grandR : null;
   const cmpStr = (avg, grand) => {
     if (avg === null || grand === null) return '';
     const d = (parseFloat(avg) - grand).toFixed(1);
@@ -1000,7 +1050,7 @@ function renderTrend() {
     <div class="prev-year-bar">
       <span class="prev-year-label">${prevYear}年 全体平均</span>
       ${prevAvgFn('scoreGrowth') !== null ? `<span class="trend-score-badge ts-g" style="opacity:0.6">成長 ${prevAvgFn('scoreGrowth')}</span>` : ''}
-      ${prevAvgFn('scoreRisk')   !== null ? `<span class="trend-score-badge ts-r" style="opacity:0.6">リスク ${prevAvgFn('scoreRisk')}</span>` : ''}
+      ${prevAvgFn('scoreRisk')   !== null ? `<span class="trend-score-badge ts-r" style="opacity:0.6">安全 ${(6 - parseFloat(prevAvgFn('scoreRisk'))).toFixed(1)}</span>` : ''}
       ${prevAvgFn('scoreEngage') !== null ? `<span class="trend-score-badge ts-e" style="opacity:0.6">エンゲ ${prevAvgFn('scoreEngage')}</span>` : ''}
     </div>` : '';
 
@@ -1023,6 +1073,7 @@ function renderTrend() {
     const avgG = scAvg('scoreGrowth');
     const avgR = scAvg('scoreRisk');
     const avgE = scAvg('scoreEngage');
+    const avgSafe = avgR !== null ? (6 - parseFloat(avgR)).toFixed(1) : null;
     const latestMonth = pMonths[pMonths.length - 1];
     const latestEntry = latestMonth ? pd[latestMonth] : null;
     const countPill   = latestEntry ? `<span class="trend-months" style="margin-left:0">${esc(fmtInputCount(latestEntry))}</span>` : '';
@@ -1037,13 +1088,14 @@ function renderTrend() {
           </div>
           <div class="trend-scores">
             ${avgG !== null ? `<span class="trend-score-badge ts-g">成長 ${avgG}${cmpStr(avgG, grandG)}</span>` : ''}
-            ${avgR !== null ? `<span class="trend-score-badge ts-r">リスク ${avgR}${cmpStr(avgR, grandR)}</span>` : ''}
+            ${avgR !== null ? `<span class="trend-score-badge ts-r">安全 ${avgSafe}${cmpStr(avgSafe, grandSafe)}</span>` : ''}
             ${avgE !== null ? `<span class="trend-score-badge ts-e">エンゲ ${avgE}${cmpStr(avgE, grandE)}</span>` : ''}
             <span class="trend-months">${cnt}か月分</span>
           </div>
         </div>
+        <div style="font-size:11px;color:var(--text-3);text-align:left;padding-left:38px;margin:2px 0 12px;line-height:1.7">これはご担当者を評価するものではなく、現状を表すアラートフラグです。<br>フラグの根拠は「変化ページ」にありますので、ポイントをクリックしてご覧ください。</div>
         <div class="trend-chart-row">
-          <div class="trend-chart-wrap"><div style="font-size:11px;color:var(--text-3);text-align:center;margin-bottom:10px;line-height:1.7">これはご担当者を評価するものではなく、現状を表すアラートフラグです。<br>フラグの根拠は「変化ページ」にありますので、ポイントをクリックしてご覧ください。</div><canvas id="${cid}"></canvas></div>
+          <div class="trend-chart-wrap"><canvas id="${cid}"></canvas></div>
           <div class="trend-radar-wrap"><canvas id="${rid}" width="240" height="240"></canvas></div>
         </div>
       </div>
@@ -1061,7 +1113,7 @@ function renderTrend() {
     const eRaw   = chartMonths.map(m => pd[m] ? (pd[m].scoreEngage  || null) : null);
     const J = 0.12;
     const gData  = gRaw.map(v => v !== null ? Math.min(5, v + J) : null);
-    const rData  = rRaw.slice();
+    const rData  = rRaw.map(v => v !== null ? 6 - v : null);
     const eData  = eRaw.map(v => v !== null ? Math.max(0, v - J) : null);
 
     const chart = new Chart(canvas, {
@@ -1070,24 +1122,26 @@ function renderTrend() {
         labels: chartMonths,
         datasets: [
           { label:'成長ポイント',       data:gData, borderColor:'#7A9E8A', pointBackgroundColor:'#7A9E8A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
-          { label:'リスクポイント',     data:rData, borderColor:'#C47A7A', pointBackgroundColor:'#C47A7A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
+          { label:'安全ポイント',     data:rData, borderColor:'#C47A7A', pointBackgroundColor:'#C47A7A', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
           { label:'エンゲージポイント', data:eData, borderColor:'#9E7FA0', pointBackgroundColor:'#9E7FA0', pointRadius:6, pointHoverRadius:8, borderWidth:2.5, tension:0.3, fill:false, spanGaps:false },
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: { padding: { top: 6 } },
         onClick: (evt, elements) => {
           if (!elements.length) return;
           const clickedMonth = chartMonths[elements[0].index];
           if (!pd[clickedMonth]) return;
+          document.getElementById('c-dept').value   = 'all';
           document.getElementById('c-person').value = p;
           document.getElementById('c-month').value  = clickedMonth;
           switchTab('change');
           const cb=document.getElementById('c-back'); if(cb) cb.style.display='';
         },
         scales: {
-          y: { min:0, max:5, ticks:{ stepSize:1, font:{size:11}, color:'#B0A89F' }, grid:{ color:'rgba(0,0,0,0.05)' } },
+          y: { min:0, max:6, ticks:{ stepSize:1, font:{size:11}, color:'#B0A89F' }, grid:{ color:'rgba(0,0,0,0.05)' } },
           x: { ticks:{ font:{size:11}, color:'#756E68' }, grid:{ color:'rgba(0,0,0,0.04)' } }
         },
         plugins: {
@@ -1133,7 +1187,7 @@ function renderTrend() {
           responsive: false,
           scales: {
             r: {
-              min: 0, max: 5,
+              min: 1, max: 5,
               ticks: { stepSize: 1, font: { size: 9 }, color: '#B0A89F', backdropColor: 'transparent' },
               grid: { color: 'rgba(0,0,0,0.07)' },
               angleLines: { color: 'rgba(0,0,0,0.07)' },
@@ -1177,9 +1231,9 @@ function downloadCSV(type) {
         rows = [['部署','担当者','週報期間','心のお天気','現状','課題']];
         all.weekly.forEach(d => rows.push([d.dept,d.person,d.period,d.weather,d.status,d.issue]));
       } else if (type === 'change') {
-        rows = [['担当者','当月','前月','入力件数','成長点','変化点','問題点','感情状態','成長スコア','リスクスコア','エンゲージスコア']];
+        rows = [['担当者','当月','前月','入力件数','成長点','変化点','問題点','感情状態','成長スコア','安全スコア','エンゲージスコア']];
         (state.change ? state.change.entries : []).forEach(d =>
-          rows.push([d.person,d.currentMonth,d.prevMonth,d.inputCount,d.growth,d.change,d.problem,d.emotion,d.scoreGrowth,d.scoreRisk,d.scoreEngage])
+          rows.push([d.person,d.currentMonth,d.prevMonth,d.inputCount,d.growth,d.change,d.problem,d.emotion,d.scoreGrowth,6 - Number(d.scoreRisk),d.scoreEngage])
         );
       } else {
         rows = [['部署','担当者','期間','グッドアイデア賞','つぶやきマスター賞','気付き賞','ポジティブ賞']];

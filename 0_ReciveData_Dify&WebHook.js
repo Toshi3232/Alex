@@ -206,6 +206,9 @@ function cleanTodayReport(text) {
   // 先頭の「【」のみ削除（本文中の「【」は残す）
   cleaned = cleaned.replace(/^【/, '');
 
+  // 「〇月〇日の報告」の日付指定フレーズを削除
+  cleaned = cleaned.replace(/[0-9０-９]{1,2}月[0-9０-９]{1,2}日の報告[。、\s]*/, '');
+
   // 「★ちょっと雑談」以降を全削除
   const idx = cleaned.indexOf('★ちょっと雑談');
   if (idx !== -1) cleaned = cleaned.substring(0, idx);
