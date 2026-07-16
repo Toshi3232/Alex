@@ -513,6 +513,67 @@ function extractWeatherScore(text) {
 // ================================================
 // CSV出力用：全レコード取得
 // ================================================
+// ------------------------------------------------
+// CSV出力用：変化点を全件取得
+// 画面用の _getChangeData() は直近3か月に絞るため、書き出しには使わない
+// ------------------------------------------------
+function _getChangeDataForExport(ss) {
+  const sheet = ss.getSheetByName('変化点');
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const tz = Session.getScriptTimeZone();
+
+  function toMonthLabel(val) {
+    if (val instanceof Date) return Utilities.formatDate(val, tz, 'yyyy年M月');
+    return String(val || '').trim();
+  }
+  function toMonthNum(val) {
+    if (val instanceof Date) return String(val.getMonth() + 1);
+    const m = String(val || '').match(/(\d{1,2})月/);
+    return m ? m[1] : null;
+  }
+
+  const data    = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  const entries = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const raw = String(row[0] || '').trim();
+    if (!raw) continue;
+
+    const hasDept = raw.includes('｜');
+    const dept    = hasDept ? raw.split('｜')[0].trim() : '';
+    const person  = hasDept ? raw.split('｜')[1].trim() : raw;
+
+    const curNum = toMonthNum(row[1]);
+    const prvNum = toMonthNum(row[2]);
+    let inputCount = String(row[3] || '');
+    if (prvNum) inputCount = inputCount.replace(/前月/g, prvNum + '月');
+    if (curNum) inputCount = inputCount.replace(/当月/g, curNum + '月');
+
+    entries.push({
+      dept        : dept,
+      person      : person,
+      currentMonth: toMonthLabel(row[1]),
+      prevMonth   : toMonthLabel(row[2]),
+      inputCount  : inputCount,
+      growth      : String(row[4]  || '').trim(),
+      change      : String(row[5]  || '').trim(),
+      problem     : String(row[6]  || '').trim(),
+      emotion     : String(row[7]  || '').trim(),
+      engagement  : String(row[8]  || '').trim(),
+      riskSign    : String(row[9]  || '').trim(),
+      scoreGrowth : Number(row[10]) || 0,
+      scoreRisk   : Number(row[11]) || 0,
+      scoreEngage : Number(row[12]) || 0,
+    });
+  }
+  return entries;
+}
+
 function getAllDataForExport() {
   _requireMaster_();
   const ss    = SpreadsheetApp.openById(SS_ID);
@@ -590,15 +651,19 @@ function getAllDataForExport() {
     awardEntries.sort((a, b) => b.period.localeCompare(a.period));
   }
 
+  let changeEntries = _getChangeDataForExport(ss);
+
   if (!_isUnrestricted_(depts)) {
     dailyEntries  = dailyEntries.filter(e => depts.indexOf(e.dept) !== -1);
     weeklyEntries = weeklyEntries.filter(e => depts.indexOf(e.dept) !== -1);
     awardEntries  = awardEntries.filter(e => depts.indexOf(e.dept) !== -1);
+    changeEntries = changeEntries.filter(e => depts.indexOf(e.dept) !== -1);
   }
 
   return {
     daily : dailyEntries,
     weekly: weeklyEntries,
+    change: changeEntries,
     award : awardEntries,
   };
 }

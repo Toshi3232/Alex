@@ -436,10 +436,12 @@ select:focus{border-color:var(--accent)}
           担当者別
         </button>
       </div>
+      <? if (isMaster) { ?>
       <button class="btn btn-ml" onclick="downloadCSV('daily')">
         <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>
         CSV
       </button>
+      <? } ?>
     </div>
     <div id="daily-content"><div class="loading"><div class="spinner"></div><span>日報を読み込んでいます...</span></div></div>
   </div>
@@ -449,10 +451,12 @@ select:focus{border-color:var(--accent)}
     <div class="filter-bar">
       <select id="w-dept" onchange="applyWeeklyFilters()"><option value="all">全部署</option></select>
       <select id="w-period" onchange="applyWeeklyFilters()"><option value="all">全期間</option></select>
+      <? if (isMaster) { ?>
       <button class="btn btn-ml" onclick="downloadCSV('weekly')">
         <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>
         CSV
       </button>
+      <? } ?>
     </div>
     <div id="weekly-content"><div class="loading"><div class="spinner"></div><span>週次データを読み込んでいます...</span></div></div>
   </div>
@@ -467,10 +471,12 @@ select:focus{border-color:var(--accent)}
         <svg viewBox="0 0 16 16" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="10,3 5,8 10,13"/></svg>
         推移に戻る
       </button>
+      <? if (isMaster) { ?>
       <button class="btn btn-ml" onclick="downloadCSV('change')">
         <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>
         CSV
       </button>
+      <? } ?>
     </div>
     <div id="change-content"><div class="loading"><div class="spinner"></div><span>変化点データを読み込んでいます...</span></div></div>
   </div>
@@ -489,10 +495,12 @@ select:focus{border-color:var(--accent)}
   <div id="sec-award" class="section">
     <div class="filter-bar">
       <select id="a-dept" onchange="applyAwardFilters()"><option value="all">全部署</option></select>
+      <? if (isMaster) { ?>
       <button class="btn btn-ml" onclick="downloadCSV('award')">
         <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>
         CSV
       </button>
+      <? } ?>
     </div>
     <div id="award-content"><div class="loading"><div class="spinner"></div><span>アワードデータを読み込んでいます...</span></div></div>
   </div>
@@ -1267,9 +1275,9 @@ function downloadCSV(type) {
         rows = [['部署','担当者','週報期間','心のお天気','現状','課題']];
         all.weekly.forEach(d => rows.push([d.dept,d.person,d.period,d.weather,d.status,d.issue]));
       } else if (type === 'change') {
-        rows = [['担当者','当月','前月','入力件数','成長点','変化点','問題点','感情状態','成長スコア','安全スコア','エンゲージスコア']];
-        (state.change ? state.change.entries : []).forEach(d =>
-          rows.push([d.person,d.currentMonth,d.prevMonth,d.inputCount,d.growth,d.change,d.problem,d.emotion,d.scoreGrowth,6 - Number(d.scoreRisk),d.scoreEngage])
+        rows = [['部署','担当者','当月','前月','入力件数','成長点','変化点','問題点','感情状態','エンゲージメント','リスク兆候','成長スコア','安全スコア','エンゲージスコア']];
+        (all.change || []).forEach(d =>
+          rows.push([d.dept,d.person,d.currentMonth,d.prevMonth,d.inputCount,d.growth,d.change,d.problem,d.emotion,d.engagement,d.riskSign,d.scoreGrowth,6 - Number(d.scoreRisk),d.scoreEngage])
         );
       } else {
         rows = [['部署','担当者','期間','グッドアイデア賞','つぶやきマスター賞','気付き賞','ポジティブ賞']];
